@@ -1,7 +1,8 @@
-import matplotlib.pyplot as plt
 import pandas as pd
 from sklearn.feature_extraction.text import CountVectorizer
-from sklearn.manifold import Isomap
+from sklearn.naive_bayes import MultinomialNB
+from sklearn.pipeline import make_pipeline
+from sklearn.svm import SVC
 
 if __name__ == "__main__":
     word_stat = pd.read_csv('data/tamil-word-stats.csv')
@@ -27,18 +28,25 @@ if __name__ == "__main__":
 
     # both = pd.concat([word_stat, eng_word_stat])
 
-    both = pd.concat([word_stat[:5000], eng_word_stat[:5000]])
+    both = pd.concat([word_stat[:20000], eng_word_stat[:20000]])
 
     both = (both
         .dropna(subset=['keystrokes']))
-    vect = CountVectorizer(analyzer='char', ngram_range=(2,2))
-    vect.fit(both['keystrokes'])
-    X = vect.transform(both['keystrokes'])
 
-    y = both['lang'] == 'tamil'
+    keystrokes = both['keystrokes']
+    labels = both['lang'] == 'tamil'
 
-    iso = Isomap(n_components=2)
-    projection = iso.fit_transform(X)
+    pipe = make_pipeline(
+            CountVectorizer(analyzer='char', ngram_range=(2,2), preprocessor=lambda s: f' {s} '),
+            MultinomialNB()
+            )
 
-    plt.scatter(projection[:,0], projection[:,1], c=y, cmap='jet')
-    plt.colorbar(ticks=[False, True])
+    pipe.fit(keystrokes, labels)
+    print(f'Score on training set: {pipe.score(keystrokes,labels)}')
+
+    pipe = make_pipeline(
+            CountVectorizer(analyzer='char', ngram_range=(2,2), preprocessor=lambda s: f' {s} '),
+            SVC(C=100)
+            )
+    pipe.fit(keystrokes, labels)
+    print(f'Score on training set: {pipe.score(keystrokes,labels)}')
