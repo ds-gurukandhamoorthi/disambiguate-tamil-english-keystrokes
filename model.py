@@ -7,6 +7,17 @@ from sklearn.linear_model import LogisticRegression
 from sklearn.linear_model import RidgeClassifier
 from sklearn.linear_model import SGDClassifier
 from sklearn.model_selection import ShuffleSplit
+from sklearn.model_selection import cross_val_score
+from sklearn.model_selection import cross_val_predict
+from sklearn.metrics import confusion_matrix
+from sklearn.metrics import precision_score
+from sklearn.metrics import recall_score
+from sklearn.metrics import f1_score
+from sklearn.metrics import roc_auc_score
+from sklearn.svm import LinearSVC
+from sklearn.tree import DecisionTreeClassifier
+from sklearn.ensemble import RandomForestClassifier
+from scipy.stats import entropy
 
 if __name__ == "__main__":
     word_stat = pd.read_csv('data/tamil-word-stats.csv')
@@ -53,7 +64,7 @@ if __name__ == "__main__":
 
     pipe = make_pipeline(
             CountVectorizer(analyzer='char', ngram_range=(2,2), preprocessor=lambda s: f' {s} '),
-            SVC(C=100)
+            LinearSVC(C=0.1)
             )
     pipe.fit(keystrokes, labels)
     print(f'Score on training set: {pipe.score(keystrokes,labels)}')
@@ -66,7 +77,7 @@ if __name__ == "__main__":
     print(f'Score on training set: {pipe.score(keystrokes,labels)}')
 
     pipe = make_pipeline(
-            CountVectorizer(analyzer='char', ngram_range=(1,2), preprocessor=lambda s: f' {s} '),
+            CountVectorizer(analyzer='char', ngram_range=(1,2), preprocessor=lambda s: f' {s} ', binary=True),
             RidgeClassifier(alpha=0.1)
             )
     pipe.fit(keystrokes, labels)
@@ -78,3 +89,54 @@ if __name__ == "__main__":
             )
     pipe.fit(keystrokes, labels)
     print(f'Score on training set: {pipe.score(keystrokes,labels)}')
+
+    from sklearn.manifold import Isomap
+    iso = Isomap(n_components=2)
+
+
+    vect = CountVectorizer(analyzer='char', ngram_range=(2,2))
+    vect.fit(both['keystrokes'])
+    X = vect.transform(both['keystrokes'])
+
+    y = both['lang'] == 'tamil'
+
+    iso = Isomap(n_components=2)
+    projection = iso.fit_transform(X)
+
+    plt.scatter(projection[:,0], projection[:,1], c=y, cmap='jet', alpha=0.1)
+    plt.colorbar(ticks=[False, True])
+
+    plt.show()
+
+    predicted = cross_val_predict(pipe, keystrokes, labels)
+
+    confusion_matrix(labels, predicted)
+
+    print(precision_score(labels, predicted))
+    print(recall_score(labels, predicted))
+    print(f1_score(labels, predicted))
+
+    print(roc_auc_score(labels, predicted))
+
+    pipe = make_pipeline(
+            CountVectorizer(analyzer='char', ngram_range=(2,2), preprocessor=lambda s: f' {s} '),
+            DecisionTreeClassifier()
+            )
+
+    pipe = make_pipeline(
+            CountVectorizer(analyzer='char', ngram_range=(1,3), preprocessor=lambda s: f' {s} '),
+            RandomForestClassifier(n_estimators=2000, n_jobs=-1)
+            )
+    pipe.fit(keystrokes, labels)
+    print(f'Score on training set: {pipe.score(keystrokes,labels)}')
+
+    features_dict = {k: v for (k,v) in zip(pipe.named_steps['countvectorizer'].get_feature_names(), pipe.named_steps['randomforestclassifier'].feature_importances_)}
+    imp_features = sorted(features_dict.items(), key=lambda x:x[1])
+    for i in imp_features:
+        print(i)
+
+    for k, v in features_dict.items():
+        if v == 0:
+            print (k, v)
+
+    entropy([v for _, v in features_dict.items() ])
